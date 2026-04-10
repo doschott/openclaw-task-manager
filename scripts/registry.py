@@ -9,7 +9,14 @@ import json
 import os
 import sys
 import argparse
+import subprocess
 from pathlib import Path
+
+# Resolve schtasks.exe path (WSL vs Windows native)
+if os.path.exists("/mnt/c/Windows/System32/schtasks.exe"):
+    SCHTASKS = "/mnt/c/Windows/System32/schtasks.exe"
+else:
+    SCHTASKS = "schtasks"
 
 REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry.json"
 
@@ -65,28 +72,27 @@ def list_tasks():
 
 def clean_orphaned():
     """Remove registry entries that no longer exist in Windows Task Scheduler."""
-    import subprocess
-    
     registry = load_registry()
     removed = []
     still_missing = []
-    
+
     for task_name in list(registry.keys()):
-        # Query Windows Task Scheduler for this task
         result = subprocess.run(
-            ['schtasks', '/query', '/tn', task_name],
+            [SCHTASKS, '/query', '/tn', task_name],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         if result.returncode != 0 or 'ERROR' in result.stdout:
             del registry[task_name]
             removed.append(task_name)
         else:
             still_missing.append(task_name)
-    
+
     if removed:
         save_registry(registry)
-    
+
     return removed, still_missing
 
 def show_registry():
@@ -95,11 +101,11 @@ def show_registry():
     if not registry:
         print("Registry is empty. No tasks registered.")
         return
-    
+
     print(f"Registry: {REGISTRY_PATH}")
     print(f"Total tasks: {len(registry)}")
     print("-" * 60)
-    
+
     for name, meta in sorted(registry.items()):
         print(f"\n{name}")
         print(f"  Created: {meta.get('created_at', 'unknown')}")
@@ -128,11 +134,10 @@ def import_registry(path):
     try:
         with open(path, 'r', encoding='utf-8') as f:
             imported = json.load(f)
-        
+
         current = load_registry()
-        # Merge: imported takes precedence for existing keys
         current.update(imported)
-        
+
         if save_registry(current):
             print(f"Imported {len(imported)} tasks from {path}")
             return True
@@ -147,9 +152,9 @@ def main():
     parser.add_argument('--export', metavar='PATH', help='Export registry to file')
     parser.add_argument('--import', dest='import_path', metavar='PATH', help='Import registry from file')
     parser.add_argument('--clean', action='store_true', help='Remove orphaned entries (not in Windows Task Scheduler)')
-    
+
     args = parser.parse_args()
-    
+
     if args.show:
         show_registry()
     elif args.export:

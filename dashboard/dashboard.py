@@ -13,8 +13,12 @@ import json
 import subprocess
 import re
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
+
+# Detect Windows schtasks.exe path
+_SCHTASKS = os.environ.get("SCHTASKS", "/mnt/c/Windows/System32/schtasks.exe")
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 
@@ -62,7 +66,7 @@ def query_windows_tasks():
     tasks = {}
     try:
         result = subprocess.run(
-            ["schtasks", "/query", "/fo", "LIST", "/v"],
+            [_SCHTASKS, "/query", "/fo", "LIST", "/v"],
             capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         current_task = {}
@@ -109,7 +113,7 @@ def get_result_meaning(code):
 def create_task(task_name, command, time, frequency, day=None, date=None):
     """Create a Windows Task Scheduler task."""
     cmd = [
-        "schtasks", "/create",
+        _SCHTASKS, "/create",
         "/tn", task_name,
         "/tr", command,
         "/sc", frequency,
@@ -152,7 +156,7 @@ def delete_task(task_name, force=False):
             raise ValueError(f"Task '{task_name}' not found in registry. Use --force to delete anyway.")
 
     result = subprocess.run(
-        ["schtasks", "/delete", "/tn", task_name, "/f"],
+        [_SCHTASKS, "/delete", "/tn", task_name, "/f"],
         capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     if result.returncode != 0:
@@ -168,7 +172,7 @@ def toggle_task(task_name, enable=True):
     """Enable or disable a task."""
     action = "/enable" if enable else "/disable"
     result = subprocess.run(
-        ["schtasks", "/change", "/tn", task_name, action],
+        [_SCHTASKS, "/change", "/tn", task_name, action],
         capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     if result.returncode != 0:
@@ -178,7 +182,7 @@ def toggle_task(task_name, enable=True):
 def run_task_now(task_name):
     """Trigger a task to run immediately."""
     result = subprocess.run(
-        ["schtasks", "/run", "/tn", task_name],
+        [_SCHTASKS, "/run", "/tn", task_name],
         capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     if result.returncode != 0:
