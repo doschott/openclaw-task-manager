@@ -29,9 +29,9 @@ def query_windows_task(task_name):
 def delete_windows_task(task_name, force=False):
     """Delete a task from Windows Task Scheduler."""
     cmd = ['schtasks', '/delete', '/tn', task_name]
-    if not force:
-        cmd.append('/i')  # Prompt for confirmation unless force
-    cmd.append('/f')  # Force delete without additional prompts
+    # Note: /i triggers a Windows GUI popup — use only if Python confirmation
+    # prompt is insufficient. The Python confirm_delete() handles the prompt.
+    cmd.append('/f')  # Force delete without confirmation
     
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     

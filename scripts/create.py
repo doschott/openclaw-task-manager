@@ -37,7 +37,7 @@ def validate_name(task_name):
         )
     return True
 
-def create_windows_task(task_name, command, time, frequency, day=None):
+def create_windows_task(task_name, command, time, frequency, day=None, date=None):
     """Create a task in Windows Task Scheduler using schtasks.exe."""
     cmd = [
         'schtasks', '/create',
@@ -57,6 +57,10 @@ def create_windows_task(task_name, command, time, frequency, day=None):
         }
         day_abbr = day_map.get(day.lower(), day.upper()[:3])
         cmd.extend(['/d', day_abbr])
+    
+    # Add date for one-time tasks
+    if schedule_type == 'once' and date:
+        cmd.extend(['/sd', date])
     
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     
@@ -153,7 +157,7 @@ Examples:
         print(f"  Day: {args.day}")
     
     try:
-        create_windows_task(args.task_name, args.command, args.time, schedule_type, args.day)
+        create_windows_task(args.task_name, args.command, args.time, schedule_type, args.day, args.date)
         print(f"\033[92m✓ Task created in Windows Task Scheduler\033[0m")
     except (PermissionError, FileNotFoundError, RuntimeError) as e:
         print(f"\033[91mError:\033[0m {e}", file=sys.stderr)
