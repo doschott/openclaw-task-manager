@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Task Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    header { background: #1a1d27; border-bottom: 1px solid #2d3348; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 18px; color: #f8fafc; font-weight: 600; }
+    .badge { font-size: 11px; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .card { background: #1a1d27; border: 1px solid #2d3348; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .card-title { font-size: 16px; font-weight: 600; color: #f8fafc; }
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #2d3348; }
+    .btn-ghost:hover { background: #2d3348; color: #e2e8f0; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #2d3348; }
+    td { padding: 12px; border-bottom: 1px solid #2d3348; font-size: 14px; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #232736; }
+    .task-name { font-weight: 600; color: #3b82f6; font-family: 'Consolas', monospace; font-size: 13px; }
+    .task-name.orphaned { color: #f59e0b; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .status-ready { background: #052e16; color: #4ade80; }
+    .status-running { background: #1e1b4b; color: #a78bfa; }
+    .status-disabled { background: #1c1917; color: #a8a29e; }
+    .status-unknown { background: #1e1e2e; color: #94a3b8; }
+    .result-success { color: #4ade80; }
+    .result-fail { color: #f87171; }
+    .result-pending { color: #f59e0b; }
+    .command-cell { font-family: 'Consolas', monospace; font-size: 12px; color: #94a3b8; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .empty { text-align: center; padding: 48px; color: #64748b; }
+    .empty p { margin-top: 8px; font-size: 14px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 1000; display: none; }
+    .toast-success { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    .toast-error { background: #2d0a0a; color: #f87171; border: 1px solid #991b1b; }
+    .toast-show { display: block; }
+    .section-tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab { padding: 8px 16px; border-radius: 8px 8px 0 0; font-size: 14px; font-weight: 500; cursor: pointer; background: transparent; color: #64748b; border: none; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; background: #1a1d27; }
+    .tab:hover:not(.active) { color: #94a3b8; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 13px; font-weight: 500; color: #94a3b8; }
+    input, select { padding: 10px 12px; border-radius: 8px; border: 1px solid #2d3348; background: #0f1117; color: #e2e8f0; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    input:focus, select:focus { border-color: #3b82f6; }
+    .code-input { font-family: 'Consolas', monospace; }
+    .naming-hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .naming-hint code { background: #2d3348; padding: 1px 5px; border-radius: 4px; color: #94a3b8; }
+    .orphaned-warning { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: #451a03; color: #fb923c; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #1a1d27; border: 1px solid #2d3348; border-radius: 12px; padding: 16px; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #f8fafc; }
+    .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-blue .stat-value { color: #3b82f6; }
+    .stat-green .stat-value { color: #4ade80; }
+    .stat-yellow .stat-value { color: #f59e0b; }
+    .stat-red .stat-value { color: #f87171; }
+    .loading { display: flex; justify-content: center; padding: 48px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #2d3348; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } td, th { font-size: 12px; } .task-name { font-size: 11px; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>OpenClaw Task Manager <span class="badge">Dashboard</span></h1>
+  <button class="btn btn-ghost" onclick="refreshTasks()">↻ Refresh</button>
+</header>
+
+<div class="container">
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card stat-blue">
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total Tasks</div>
+    </div>
+    <div class="stat-card stat-green">
+      <div class="stat-value" id="stat-ready">—</div>
+      <div class="stat-label">Ready</div>
+    </div>
+    <div class="stat-card stat-yellow">
+      <div class="stat-value" id="stat-orphaned">—</div>
+      <div class="stat-label">Orphaned</div>
+    </div>
+    <div class="stat-card stat-red">
+      <div class="stat-value" id="stat-errors">—</div>
+      <div class="stat-label">Errors</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="section-tabs">
+    <button class="tab active" onclick="showTab('tasks')">Tasks</button>
+    <button class="tab" onclick="showTab('create')">Create Task</button>
+  </div>
+
+  <!-- Task List -->
+  <div id="tab-tasks" class="tab-content active">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">All Tasks</span>
+      </div>
+      <div id="task-list">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Task -->
+  <div id="tab-create" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Create New Task</span>
+      </div>
+      <form id="create-form" onsubmit="submitCreate(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label for="task_name">Task Name *</label>
+            <input type="text" id="task_name" name="task_name" placeholder="OpenClaw_ProphecyNews_NewsFull_0700" required>
+            <div class="naming-hint">Format: <code>OpenClaw_{Project}_{Action}_{Schedule}</code></div>
+          </div>
+          <div class="form-group full">
+            <label for="command">Command *</label>
+            <input type="text" id="command" name="command" class="code-input" placeholder="python D:\scripts\fetch_news.py" required>
+          </div>
+          <div class="form-group">
+            <label for="time">Time *</label>
+            <input type="time" id="time" name="time" value="07:00" required>
+          </div>
+          <div class="form-group">
+            <label for="frequency">Frequency *</label>
+            <select id="frequency" name="frequency" required>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="once">One-time</option>
+              <option value="hourly">Hourly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="day">Day of Week</label>
+            <select id="day" name="day">
+              <option value="">— Not applicable —</option>
+              <option value="Sunday">Sunday</option>
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="date">Start Date</label>
+            <input type="date" id="date" name="date">
+          </div>
+          <div class="form-group full" style="margin-top: 8px;">
+            <button type="submit" class="btn btn-primary">Create Task</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  let allTasks = [];
+
+  async function loadTasks() {
+    const res = await fetch("/api/tasks");
+    allTasks = await res.json();
+    renderTasks(allTasks);
+    updateStats(allTasks);
+  }
+
+  function renderTasks(tasks) {
+    const container = document.getElementById("task-list");
+    if (!tasks || tasks.length === 0) {
+      container.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No tasks found. Create one to get started.</p></div>';
+      return;
+    }
+
+    tasks.sort((a, b) => a.name.localeCompare(b.name));
+
+    let html = `<table>
+      <thead><tr>
+        <th>Task Name</th>
+        <th>Status</th>
+        <th>Next Run</th>
+        <th>Last Result</th>
+        <th>Command</th>
+        <th>Actions</th>
+      </tr></thead><tbody>`;
+
+    for (const task of tasks) {
+      const statusClass = task.status === "Ready" ? "status-ready"
+        : task.status === "Running" ? "status-running"
+        : task.status === "Disabled" ? "status-disabled"
+        : "status-unknown";
+
+      let resultClass = "";
+      if (task.last_result === "0") resultClass = "result-success";
+      else if (task.last_result === "N/A" || task.last_result === "Never") resultClass = "result-pending";
+      else resultClass = "result-fail";
+
+      const orphaned = task.orphaned
+        ? `<span class="orphaned-warning">⚠ Orphaned</span>`
+        : "";
+
+      const disabledBtn = task.status === "Disabled"
+        ? `<button class="btn btn-ghost btn-sm" onclick="toggleTask('${task.name}', true)">Enable</button>`
+        : `<button class="btn btn-ghost btn-sm" onclick="toggleTask('${task.name}', false)">Disable</button>`;
+
+      html += `<tr>
+        <td><span class="task-name ${task.orphaned ? 'orphaned' : ''}">${task.name}${orphaned}</span></td>
+        <td><span class="status-badge ${statusClass}">${task.status}</span></td>
+        <td>${task.next_run}</td>
+        <td class="${resultClass}">${task.last_result === "N/A" ? "Not run" : task.last_result}</td>
+        <td><span class="command-cell" title="${task.command}">${task.command}</span></td>
+        <td>
+          <div class="actions">
+            ${disabledBtn}
+            <button class="btn btn-ghost btn-sm" onclick="runTask('${task.name}')">Run Now</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTask('${task.name}', ${task.orphaned})">Delete</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
+  function updateStats(tasks) {
+    const total = tasks.length;
+    const ready = tasks.filter(t => t.status === "Ready").length;
+    const orphaned = tasks.filter(t => t.orphaned).length;
+    const errors = tasks.filter(t => t.last_result !== "0" && t.last_result !== "N/A" && t.last_result !== "Never" && t.last_result).length;
+
+    document.getElementById("stat-total").textContent = total;
+    document.getElementById("stat-ready").textContent = ready;
+    document.getElementById("stat-orphaned").textContent = orphaned;
+    document.getElementById("stat-errors").textContent = errors;
+  }
+
+  function showTab(tab) {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    event.target.classList.add("active");
+    document.getElementById("tab-" + tab).classList.add("active");
+  }
+
+  async function submitCreate(e) {
+    e.preventDefault();
+    const form = document.getElementById("create-form");
+    const data = {
+      task_name: document.getElementById("task_name").value.trim(),
+      command: document.getElementById("command").value.trim(),
+      time: document.getElementById("time").value,
+      frequency: document.getElementById("frequency").value,
+      day: document.getElementById("day").value || null,
+      date: document.getElementById("date").value || null,
+    };
+
+    const res = await fetch("/api/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      showToast("Task created successfully!", "success");
+      form.reset();
+      loadTasks();
+    } else {
+      showToast(result.message, "error");
+    }
+  }
+
+  async function deleteTask(name, orphaned) {
+    if (!confirm(`Delete task "${name}"?${orphaned ? " (Orphaned - not in registry)" : ""}`)) return;
+    const force = orphaned ? "?force=true" : "";
+    const res = await fetch(`/api/delete/${name}${force}`, { method: "DELETE" });
+    const result = await res.json();
+    if (result.success) {
+      showToast("Task deleted.", "success");
+      loadTasks();
+    } else {
+      showToast(result.message, "error");
+    }
+  }
+
+  async function toggleTask(name, enable) {
+    const action = enable ? "enabled" : "disabled";
+    const res = await fetch(`/api/toggle/${name}?enable=${enable}`, { method: "POST" });
+    const result = await res.json();
+    if (result.success) {
+      showToast(`Task ${action}.`, "success");
+      loadTasks();
+    } else {
+      showToast(result.message, "error");
+    }
+  }
+
+  async function runTask(name) {
+    const res = await fetch(`/api/run/${name}`, { method: "POST" });
+    const result = await res.json();
+    if (result.success) {
+      showToast("Task triggered!", "success");
+      setTimeout(loadTasks, 1000);
+    } else {
+      showToast(result.message, "error");
+    }
+  }
+
+  function refreshTasks() { loadTasks(); }
+
+  function showToast(message, type) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.className = `toast toast-${type} toast-show`;
+    setTimeout(() => { toast.classList.remove("toast-show"); }, 3000);
+  }
+
+  // Init
+  loadTasks();
+</script>
+</body>
+</html>
