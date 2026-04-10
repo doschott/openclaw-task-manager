@@ -51,6 +51,20 @@
     .tab:hover:not(.active) { color: #94a3b8; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .version-badge { display: inline-block; font-size: 10px; background: #3b82f6; color: white; padding: 1px 6px; border-radius: 8px; margin-left: 6px; cursor: pointer; }
+    .version-panel { background: #0f1117; border: 1px solid #2d3348; border-radius: 8px; padding: 16px; margin-top: 12px; display: none; }
+    .version-panel.open { display: block; }
+    .version-entry { padding: 10px 0; border-bottom: 1px solid #2d3348; }
+    .version-entry:last-child { border-bottom: none; }
+    .version-header { display: flex; justify-content: space-between; font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+    .version-detail { font-size: 12px; color: #64748b; padding-left: 8px; }
+    .version-detail strong { color: #94a3b8; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #1a1d27; border: 1px solid #2d3348; border-radius: 16px; padding: 32px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal h3 { color: #f8fafc; margin-bottom: 16px; font-size: 18px; }
+    .modal p { color: #94a3b8; font-size: 14px; margin-bottom: 12px; }
+    .modal .btn { margin-right: 8px; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group.full { grid-column: 1 / -1; }
@@ -107,6 +121,8 @@
   <div class="section-tabs">
     <button class="tab active" onclick="showTab('tasks')">Tasks</button>
     <button class="tab" onclick="showTab('create')">Create Task</button>
+    <button class="tab" onclick="showTab('import')">Import Task</button>
+    <button class="tab" onclick="showTab('versions')">Version History</button>
   </div>
 
   <!-- Task List -->
@@ -173,6 +189,45 @@
           </div>
         </div>
       </form>
+    </div>
+
+    <!-- Import Task -->
+    <div id="tab-import" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Import Existing Task</span>
+        </div>
+        <p style="color:#94a3b8;font-size:14px;margin-bottom:20px">
+          Register a Windows Task Scheduler task that wasn't created by this skill. 
+          It will be tracked in the registry and appear in the dashboard.
+        </p>
+        <form id="import-form" onsubmit="submitImport(event)">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label for="import_name">Task Name *</label>
+              <input type="text" id="import_name" name="import_name" placeholder="OpenClaw_ExistingTask_Action_Schedule" required>
+              <div class="naming-hint">Must already exist in Windows Task Scheduler</div>
+            </div>
+            <div class="form-group full" style="margin-top:8px">
+              <button type="submit" class="btn btn-primary">Import Task</button>
+            </div>
+          </div>
+        </form>
+        <div id="import-result" style="margin-top:16px"></div>
+      </div>
+    </div>
+
+    <!-- Version History -->
+    <div id="tab-versions" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Version History</span>
+          <button class="btn btn-ghost btn-sm" onclick="refreshVersions()">↻ Refresh</button>
+        </div>
+        <div id="versions-list" style="margin-top:16px">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -341,6 +396,120 @@
 
   // Init
   loadTasks();
+
+  // ====== Import ======
+  async function submitImport(e) {
+    e.preventDefault();
+    const name = document.getElementById("import_name").value.trim();
+    const resultDiv = document.getElementById("import-result");
+    if (!name) return;
+
+    resultDiv.innerHTML = '<div class="spinner" style="width:24px;height:24px;border-width:2px;margin:0"></div> Importing...';
+
+    const res = await fetch("/api/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_name: name }),
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      resultDiv.innerHTML = `<div style="color:#4ade80;font-size:14px">✓ ${result.message}<br><span style="color:#94a3b8">Version ${result.version} created. Task is now tracked in the registry.</span></div>`;
+      document.getElementById("import_name").value = "";
+      loadTasks();
+    } else {
+      resultDiv.innerHTML = `<div style="color:#f87171;font-size:14px">✗ ${result.message}</div>`;
+    }
+  }
+
+  // ====== Version History ======
+  async function loadVersions(taskName) {
+    // If taskName given, expand inline. Otherwise load all.
+    if (taskName) {
+      const panel = document.getElementById("vp-" + taskName.replace(/[^a-zA-Z0-9]/g, "_"));
+      if (panel) {
+        panel.classList.toggle("open");
+        return;
+      }
+    }
+    refreshVersions();
+  }
+
+  async function refreshVersions() {
+    const container = document.getElementById("versions-list");
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    // Gather all versions from all tasks
+    const tasks = await (await fetch("/api/tasks")).json();
+    let allVersions = [];
+
+    for (const task of tasks) {
+      const res = await fetch(`/api/versions/${encodeURIComponent(task.name)}`);
+      const data = await res.json();
+      if (data.success && data.versions && data.versions.length > 0) {
+        allVersions.push({ task: task.name, versions: data.versions });
+      }
+    }
+
+    if (allVersions.length === 0) {
+      container.innerHTML = '<div class="empty"><p>No version history found. Create or import tasks to start tracking.</p></div>';
+      return;
+    }
+
+    let html = '';
+    for (const { task, versions } of allVersions) {
+      const latest = versions[versions.length - 1];
+      const safeId = task.replace(/[^a-zA-Z0-9]/g, "_");
+      html += `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#232736;border-radius:8px;cursor:pointer" onclick="loadVersions('${task.replace(/'/g, "\\'")}')">
+            <span style="font-weight:600;color:#3b82f6;font-family:monospace;font-size:13px">${task}</span>
+            <span style="color:#64748b;font-size:12px">${versions.length} version${versions.length !== 1 ? 's' : ''} · Latest: v${latest.version} (${latest.timestamp})</span>
+          </div>
+          <div class="version-panel" id="vp-${safeId}">
+            <div style="text-align:center;padding:12px;color:#64748b">Loading...</div>
+          </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+
+    // Load version details for each
+    for (const { task, versions } of allVersions) {
+      const safeId = task.replace(/[^a-zA-Z0-9]/g, "_");
+      const panel = document.getElementById("vp-" + safeId);
+      if (!panel) continue;
+
+      let html = '';
+      for (const v of versions) {
+        const isLatest = v === versions[versions.length - 1];
+        html += `
+          <div class="version-entry">
+            <div class="version-header">
+              <span>v${v.version} ${isLatest ? '(current)' : ''} · ${v.timestamp}</span>
+              <span style="color:#f59e0b">${v.reason}</span>
+            </div>
+            <div class="version-detail"><strong>Command:</strong> ${v.command || '-'}</div>
+            <div class="version-detail"><strong>Schedule:</strong> ${v.schedule || '-'} at ${v.time || '-'}</div>
+            ${v.day ? `<div class="version-detail"><strong>Day:</strong> ${v.day}</div>` : ''}
+            ${!isLatest ? `<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="restoreVersion('${task.replace(/'/g, "\\'")}', ${v.version})">Restore to v${v.version}</button>` : ''}
+          </div>`;
+      }
+      panel.innerHTML = html;
+    }
+  }
+
+  async function restoreVersion(taskName, versionNum) {
+    if (!confirm(`Restore task "${taskName}" to version ${versionNum}?`)) return;
+    const res = await fetch(`/api/restore/${encodeURIComponent(taskName)}/${versionNum}`, { method: "POST" });
+    const result = await res.json();
+    if (result.success) {
+      showToast(`Task "${taskName}" restored to v${versionNum}.`, "success");
+      loadTasks();
+      refreshVersions();
+    } else {
+      showToast(result.message, "error");
+    }
+  }
 </script>
 </body>
 </html>

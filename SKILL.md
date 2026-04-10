@@ -279,6 +279,8 @@ Then open http://localhost:5173/ in your browser.
 - **Stats overview** — total tasks, ready count, orphaned count, error count
 - **Task list** — all OpenClaw tasks with status, last result, next run time
 - **Create tasks** — form with naming convention validation
+- **Import tasks** — register existing Windows Task Scheduler tasks into the registry
+- **Version history** — view and restore task versions from the dashboard
 - **Manage tasks** — enable, disable, run now, delete
 - **Orphan detection** — highlights tasks in Windows but not in registry
 - **Responsive** — works on desktop and mobile
@@ -290,6 +292,37 @@ python dashboard.py
 
 # Or run directly
 py -3 dashboard.py
+```
+
+## Import Existing Tasks
+
+Import tasks that were created outside this skill (e.g., manually in Task Scheduler, other tools):
+
+```powershell
+# Via dashboard: use the "Import Task" tab
+# Via CLI:
+python scripts/import.py OpenClaw_ExistingTask_Action_Schedule
+```
+
+The task must already exist in Windows Task Scheduler. The importer queries the task's current configuration and registers it in the local registry with version 1.
+
+## Version Management
+
+Every task change is automatically versioned:
+
+- **Create**: Version 1 created automatically
+- **Restore**: New version created with "Restored from v{N}"
+- **Manual notes**: Add notes via CLI (`--note TASKNAME`)
+
+View history:
+```powershell
+python scripts/registry.py --versions TaskName      # specific task
+python scripts/registry.py --versions              # all tasks
+```
+
+Restore to a specific version:
+```powershell
+python scripts/registry.py --restore TaskName 3    # restore to v3
 ```
 
 ## Installation

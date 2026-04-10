@@ -50,6 +50,52 @@ def save_registry(registry):
     with open(REGISTRY_PATH, "w", encoding="utf-8") as f:
         json.dump(registry, f, indent=2, ensure_ascii=False)
 
+# --- Registry Version Helpers ---
+VERSION_REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry-versions.json"
+
+def load_version_registry():
+    if not VERSION_REGISTRY_PATH.exists():
+        return {}
+    try:
+        with open(VERSION_REGISTRY_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+def save_version_registry(versions):
+    VERSION_REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(VERSION_REGISTRY_PATH, "w", encoding="utf-8") as f:
+        json.dump(versions, f, indent=2, ensure_ascii=False)
+
+def add_version(task_name, metadata, reason="Manual update"):
+    versions = load_version_registry()
+    if task_name not in versions:
+        versions[task_name] = []
+    version_number = len(versions[task_name]) + 1
+    version_entry = {
+        "version": version_number,
+        "timestamp": datetime.now().isoformat(),
+        "reason": reason,
+        "command": metadata.get("command", ""),
+        "schedule": metadata.get("schedule", ""),
+        "time": metadata.get("time", ""),
+        "day": metadata.get("day", ""),
+    }
+    versions[task_name].append(version_entry)
+    save_version_registry(versions)
+    return version_entry
+
+def get_versions(task_name):
+    versions = load_version_registry()
+    return versions.get(task_name, [])
+
+# Registry module passthrough for dashboard use
+class RegistryModule:
+    def get_task(self, name): return get_registry_task(name)
+    def add_task(self, name, meta): return add_registry_task(name, meta)
+    def remove_task(self, name): return remove_registry_task(name)
+
+registry = RegistryModule()
 
 def validate_name(task_name):
     if not NAMING_PATTERN.match(task_name):
@@ -58,6 +104,30 @@ def validate_name(task_name):
             f"Expected: OpenClaw_{{Project}}_{{Action}}_{{Schedule}}"
         )
     return True
+
+
+# --- Registry CRUD ---
+def get_registry_task(name):
+    reg = load_registry()
+    return reg.get(name)
+
+def add_registry_task(name, meta):
+    reg = load_registry()
+    reg[name] = meta
+    save_registry(reg)
+
+def remove_registry_task(name):
+    reg = load_registry()
+    if name in reg:
+        del reg[name]
+        save_registry(reg)
+        # Clean up versions
+        versions = load_version_registry()
+        if name in versions:
+            del versions[name]
+            save_version_registry(versions)
+        return True
+    return False
 
 
 # --- Task Operations ---
@@ -91,6 +161,46 @@ def query_windows_tasks():
     except Exception:
         pass
     return tasks
+
+
+def query_windows_task_details(task_name):
+    """Get full details of a single task from Windows Task Scheduler."""
+    result = subprocess.run(
+        [_SCHTASKS, "/query", "/tn", task_name, "/fo", "LIST", "/v"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+    if result.returncode != 0 or "ERROR" in result.stdout:
+        return None
+
+    details = {
+        "name": task_name, "command": "", "status": "Unknown",
+        "next_run": "Not scheduled", "last_run": "Never", "last_result": "N/A",
+        "schedule_type": "Unknown", "start_time": "Unknown", "start_date": "Unknown",
+        "days": "",
+    }
+    for line in result.stdout.split("\n"):
+        line = line.strip()
+        if line.startswith("TaskName:"):
+            details["name"] = line.split("TaskName:", 1)[1].strip()
+        elif line.startswith("Task To Run:"):
+            details["command"] = line.split("Task To Run:", 1)[1].strip()
+        elif line.startswith("Status:"):
+            details["status"] = line.split("Status:", 1)[1].strip()
+        elif line.startswith("Next Run Time:"):
+            details["next_run"] = line.split("Next Run Time:", 1)[1].strip()
+        elif line.startswith("Last Run Time:"):
+            details["last_run"] = line.split("Last Run Time:", 1)[1].strip()
+        elif line.startswith("Last Result:"):
+            details["last_result"] = line.split("Last Result:", 1)[1].strip()
+        elif line.startswith("Schedule Type:"):
+            details["schedule_type"] = line.split("Schedule Type:", 1)[1].strip()
+        elif line.startswith("Start Time:"):
+            details["start_time"] = line.split("Start Time:", 1)[1].strip()
+        elif line.startswith("Start Date:"):
+            details["start_date"] = line.split("Start Date:", 1)[1].strip()
+        elif line.startswith("For the following Days:"):
+            details["days"] = line.split("For the following Days:", 1)[1].strip()
+    return details
 
 
 def get_result_meaning(code):
@@ -136,15 +246,19 @@ def create_task(task_name, command, time, frequency, day=None, date=None):
 
     # Auto-register
     registry = load_registry()
-    registry[task_name] = {
+    metadata = {
         "command": command,
         "time": time,
         "schedule": frequency,
         "created_at": datetime.now().isoformat(),
     }
     if day:
-        registry[task_name]["day"] = day
+        metadata["day"] = day
+    registry[task_name] = metadata
     save_registry(registry)
+    
+    # Create version 1
+    add_version(task_name, metadata, "Task created")
 
 
 def delete_task(task_name, force=False):
@@ -166,6 +280,11 @@ def delete_task(task_name, force=False):
     registry = load_registry()
     registry.pop(task_name, None)
     save_registry(registry)
+
+    # Clean up version history
+    versions = load_version_registry()
+    versions.pop(task_name, None)
+    save_version_registry(versions)
 
 
 def toggle_task(task_name, enable=True):
@@ -286,6 +405,111 @@ def api_run(task_name):
         return jsonify({"success": True, "message": f"Task '{task_name}' triggered."})
     except RuntimeError as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/import", methods=["POST"])
+def api_import():
+    """Import an existing Windows Task Scheduler task into the registry."""
+    data = request.json
+    task_name = data.get("task_name", "").strip()
+    if not task_name:
+        return jsonify({"success": False, "message": "task_name is required"}), 400
+
+    # Check if already registered
+    existing = registry.get_task(task_name)
+    if existing:
+        return jsonify({"success": False, "message": f"Task '{task_name}' is already registered."}), 400
+
+    # Query task from Windows
+    details = query_windows_task_details(task_name)
+    if not details:
+        return jsonify({"success": False, "message": f"Task '{task_name}' not found in Windows Task Scheduler."}), 404
+
+    # Build metadata
+    metadata = {
+        "command": details.get("command", ""),
+        "schedule": details.get("schedule_type", ""),
+        "time": details.get("start_time", ""),
+        "imported": True,
+        "imported_at": datetime.now().isoformat(),
+        "last_run": details.get("last_run", "Never"),
+        "last_result": details.get("last_result", "N/A"),
+    }
+    if details.get("days"):
+        metadata["days"] = details["days"]
+
+    registry.add_task(task_name, metadata)
+    registry.add_version(task_name, metadata, "Imported from Windows Task Scheduler")
+
+    return jsonify({
+        "success": True,
+        "message": f"Task '{task_name}' imported successfully.",
+        "task": metadata,
+        "version": 1
+    })
+
+
+@app.route("/api/versions/<task_name>")
+def api_versions(task_name):
+    """Get version history for a task."""
+    versions = registry.get_versions(task_name)
+    if versions is None:
+        return jsonify({"success": False, "message": "Task not found."}), 404
+    return jsonify({
+        "success": True,
+        "task_name": task_name,
+        "versions": versions
+    })
+
+
+@app.route("/api/restore/<task_name>/<int:version_num>", methods=["POST"])
+def api_restore(task_name, version_num):
+    """Restore a task to a specific version."""
+    versions = registry.get_versions(task_name)
+    if not versions:
+        return jsonify({"success": False, "message": f"No version history found for '{task_name}'."}), 404
+
+    target = next((v for v in versions if v["version"] == version_num), None)
+    if not target:
+        return jsonify({"success": False, "message": f"Version {version_num} not found. Available: {[v['version'] for v in versions]}"}), 404
+
+    # Recreate the task with version's metadata
+    task_meta = {
+        "command": target.get("command", ""),
+        "schedule": target.get("schedule", ""),
+        "time": target.get("time", ""),
+        "day": target.get("day", ""),
+        "restored_from_version": version_num,
+        "restored_at": datetime.now().isoformat(),
+    }
+
+    # Update registry
+    registry.add_task(task_name, task_meta)
+    registry.add_version(task_name, task_meta, f"Restored from v{version_num}")
+
+    # Recreate the actual Windows task
+    try:
+        # Delete old task first (if it exists)
+        subprocess.run([_SCHTASKS, "/delete", "/tn", task_name, "/f"],
+                      capture_output=True, text=True, encoding="utf-8", errors="replace")
+        # Create new task
+        cmd = [
+            _SCHTASKS, "/create",
+            "/tn", task_name,
+            "/tr", task_meta["command"],
+            "/sc", task_meta.get("schedule", "daily"),
+            "/st", task_meta.get("time", "00:00"),
+            "/f"
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except Exception:
+        pass  # Best effort - registry is the primary source
+
+    return jsonify({
+        "success": True,
+        "message": f"Task '{task_name}' restored to v{version_num}.",
+        "restored_to": task_meta
+    })
 
 
 # --- Main ---
