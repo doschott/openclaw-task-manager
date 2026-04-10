@@ -263,6 +263,35 @@ openclaw-task-manager/
     └── task-template.json    # Example task definition
 ```
 
+## Dashboard
+
+A visual web dashboard is included for browser-based task management.
+
+### Setup
+```powershell
+cd openclaw-task-manager\dashboard
+pip install -r requirements.txt
+python dashboard.py
+```
+Then open http://localhost:5173/ in your browser.
+
+### Dashboard Features
+- **Stats overview** — total tasks, ready count, orphaned count, error count
+- **Task list** — all OpenClaw tasks with status, last result, next run time
+- **Create tasks** — form with naming convention validation
+- **Manage tasks** — enable, disable, run now, delete
+- **Orphan detection** — highlights tasks in Windows but not in registry
+- **Responsive** — works on desktop and mobile
+
+### Quick Launch
+```powershell
+# From the dashboard directory
+python dashboard.py
+
+# Or run directly
+py -3 dashboard.py
+```
+
 ## Installation
 
 ```bash
