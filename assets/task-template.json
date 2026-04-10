@@ -1,0 +1,50 @@
+{
+  "$schema": "https://agentskills.io/schema/task-template.json",
+  "name": "OpenClaw_Project_Action_Schedule",
+  "command": "python D:\\scripts\\task.py",
+  "time": "07:00",
+  "schedule_type": "daily",
+  "description": "Description of what this task does",
+  "tags": ["openclaw", "automation", "daily"],
+  "metadata": {
+    "created_by": "openclaw-task-manager",
+    "version": "1.0.0",
+    "project": "ProjectName",
+    "action": "ActionDescription",
+    "schedule": "0700",
+    "retry_policy": {
+      "enabled": false,
+      "max_retries": 3,
+      "retry_interval_minutes": 5
+    },
+    "notification": {
+      "on_failure": false,
+      "on_success": false,
+      "email": null
+    }
+  },
+  "examples": {
+    "daily_news_fetch": {
+      "name": "OpenClaw_ProphecyNews_NewsFull_0700",
+      "command": "python D:\\scripts\\fetch_news.py",
+      "time": "07:00",
+      "schedule_type": "daily",
+      "description": "Fetch and process prophecy news articles every morning at 7 AM"
+    },
+    "weekly_backup": {
+      "name": "OpenClaw_Backups_FullWeekly_Sunday",
+      "command": "D:\\scripts\\backup.bat",
+      "time": "03:00",
+      "schedule_type": "weekly",
+      "day": "Sunday",
+      "description": "Full system backup every Sunday at 3 AM"
+    },
+    "hourly_sync": {
+      "name": "OpenClaw_QuantumHub_SyncHourly_Hourly",
+      "command": "python D:\\scripts\\sync_data.py",
+      "time": "00:00",
+      "schedule_type": "hourly",
+      "description": "Sync quantum hub data every hour"
+    }
+  }
+}
