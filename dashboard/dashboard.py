@@ -30,7 +30,7 @@ REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry.json"
 # --- Flask App ---
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
-OPENCLAW_PATTERN = re.compile(r"^OpenClaw_")
+OPENCLAW_PATTERN = re.compile(r"^\\?OpenClaw_")
 NAMING_PATTERN = re.compile(r"^OpenClaw_[A-Z][a-zA-Z0-9]*_[A-Z][a-zA-Z0-9]*_[A-Z0-9a-z]+$")
 
 
@@ -143,21 +143,28 @@ def query_windows_tasks():
         for line in result.stdout.split("\n"):
             line = line.strip()
             if line.startswith("TaskName:"):
+                # Save previous task if any
+                if current_task.get("name"):
+                    tasks[current_task["name"]] = current_task
                 name = line.split("TaskName:", 1)[1].strip()
                 if OPENCLAW_PATTERN.match(name):
-                    current_task["name"] = name
-            elif line.startswith("Next Run Time:") and "name" in current_task:
-                current_task["next_run"] = line.split("Next Run Time:", 1)[1].strip()
-            elif line.startswith("Last Run Time:") and "name" in current_task:
-                current_task["last_run"] = line.split("Last Run Time:", 1)[1].strip()
-            elif line.startswith("Last Result:") and "name" in current_task:
-                current_task["last_result"] = line.split("Last Result:", 1)[1].strip()
-            elif line.startswith("Status:") and "name" in current_task:
-                current_task["status"] = line.split("Status:", 1)[1].strip()
-                tasks[current_task["name"]] = current_task
-                current_task = {}
-            elif line.startswith("Task To Run:") and "name" in current_task:
-                current_task["command"] = line.split("Task To Run:", 1)[1].strip()
+                    current_task = {"name": name.lstrip("\\")}
+                else:
+                    current_task = {}
+            elif current_task.get("name"):
+                if line.startswith("Next Run Time:"):
+                    current_task["next_run"] = line.split("Next Run Time:", 1)[1].strip()
+                elif line.startswith("Last Run Time:"):
+                    current_task["last_run"] = line.split("Last Run Time:", 1)[1].strip()
+                elif line.startswith("Last Result:"):
+                    current_task["last_result"] = line.split("Last Result:", 1)[1].strip()
+                elif line.startswith("Status:"):
+                    current_task["status"] = line.split("Status:", 1)[1].strip()
+                elif line.startswith("Task To Run:"):
+                    current_task["command"] = line.split("Task To Run:", 1)[1].strip()
+        # Save last task
+        if current_task.get("name"):
+            tasks[current_task["name"]] = current_task
     except Exception:
         pass
     return tasks
