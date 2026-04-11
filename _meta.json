@@ -1,0 +1,33 @@
+{
+  "name": "openclaw-task-manager",
+  "version": "1.0.0",
+  "description": "Manage Windows Task Scheduler tasks for OpenClaw agents with naming convention enforcement, registry tracking, version history, and a browser dashboard.",
+  "author": "DOSBot (Daniel Schott)",
+  "license": "MIT",
+  "homepage": "https://github.com/doschott/openclaw-task-manager",
+  "topics": ["windows", "task-scheduler", "scheduling", "automation", "openclaw"],
+  "compatibility": ["Windows 10/11", "WSL2 with OpenClaw"],
+  "minOpenClawVersion": "2026.1.0",
+  "tags": [
+    "windows-task-scheduler",
+    "scheduling",
+    "task-management",
+    "automation",
+    "registry-tracking"
+  ],
+  "shortDescription": "Browser dashboard and CLI for managing Windows Task Scheduler tasks with OpenClaw naming conventions and version history.",
+  "screenshots": [
+    "assets/dashboard-tasks.png",
+    "assets/dashboard-import.png"
+  ],
+  "features": [
+    "Web dashboard at http://localhost:5173",
+    "Naming convention enforcement: OpenClaw_{Project}_{Action}_{Schedule}",
+    "Task registry at ~/.openclaw/task-registry.json",
+    "Version history with full restore capability",
+    "Import existing Windows tasks into the registry",
+    "Orphan detection for tasks in Windows but not in registry",
+    "CLI scripts: create, delete, import, list, status, registry",
+    "Flask auto-detection across known project venvs"
+  ]
+}

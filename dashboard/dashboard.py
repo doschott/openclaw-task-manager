@@ -20,6 +20,51 @@ from datetime import datetime
 # Detect Windows schtasks.exe path
 _SCHTASKS = os.environ.get("SCHTASKS", "/mnt/c/Windows/System32/schtasks.exe")
 
+# --- Flask Auto-Detection ---
+# Try to find Flask from known venvs before failing
+def _find_flask():
+    import importlib.util
+    if importlib.util.find_spec("flask") is not None:
+        return True
+
+    # Known venv paths to search (relative to common project roots)
+    script_dir = Path(__file__).resolve().parent
+    known_venvs = [
+        # Prophecy News Tracker (common on this system)
+        Path.home() / "clawd" / "projects" / "prophecy-news-tracker" / "venv",
+        # Quantum Hub collector
+        Path.home() / "clawd" / "projects" / "quantum-hub" / "collector" / "venv",
+        # ShadowBroker backend
+        Path.home() / "clawd" / "projects" / "Shadowbroker" / "backend" / "venv",
+        # Same-level venv
+        script_dir.parent.parent / "venv",
+        script_dir.parent / "venv",
+        # Generic check in project siblings
+        Path.home() / "clawd" / "venv",
+    ]
+
+    for venv in known_venvs:
+        site_packages = venv / "lib" / "python3.12" / "site-packages"
+        if not site_packages.exists():
+            # Try python3.11 or python3 sites
+            for child in (venv / "lib").iterdir() if (venv / "lib").exists() else []:
+                if child.name.startswith("python"):
+                    site_packages = child / "site-packages"
+                    break
+        if site_packages.exists() and (site_packages / "flask").exists():
+            sys.path.insert(0, str(site_packages))
+            return True
+
+    return False
+
+if not _find_flask():
+    print("ERROR: Flask not found.", file=sys.stderr)
+    print("Install Flask with one of:", file=sys.stderr)
+    print("  pip install flask", file=sys.stderr)
+    print("  OR use an existing venv:", file=sys.stderr)
+    print("  ~/clawd/projects/prophecy-news-tracker/venv/bin/python dashboard.py", file=sys.stderr)
+    sys.exit(1)
+
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 
 # --- Configuration ---
