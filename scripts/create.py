@@ -24,26 +24,20 @@ else:
 sys.path.insert(0, str(Path(__file__).parent))
 import registry
 
-# Naming convention pattern:
-#   Standard:  OpenClaw_{Project}_{Action}_{Schedule}
-#   Alt:       {ProjectName}-{Descriptor} or {ProjectName}-{Descriptor}-{Schedule}
-#   Examples:  OpenClaw_ProphecyNews_NewsFull_0700, ProphecyNews-NewsFull-7am, QuantumHub-Alerts-1pm
+# Naming convention pattern: OpenClaw_{Project}_{Action}_{Schedule}
 NAMING_PATTERN = re.compile(r'^OpenClaw_[A-Z][a-zA-Z0-9]*_[A-Z][a-zA-Z0-9]*_[A-Z0-9a-z]+$')
-ALT_NAMING_PATTERN = re.compile(r'^(OpenClaw|ProphecyNews|QuantumHub|LemonParty|MedicalIntel|ShadowBroker)-[A-Za-z0-9]+(-[A-Za-z0-9]+)?$')
 
 def validate_name(task_name):
     """Validate task name against OpenClaw naming convention."""
-    if NAMING_PATTERN.match(task_name) or ALT_NAMING_PATTERN.match(task_name):
+    if NAMING_PATTERN.match(task_name):
         return True
     raise ValueError(
         f"Task name '{task_name}' does not match OpenClaw naming convention.\n"
         f"Expected pattern: OpenClaw_{{Project}}_{{Action}}_{{Schedule}}\n"
-        f"  OR (alternative): {{ProjectName}}-{{Descriptor}} or {{ProjectName}}-{{Descriptor}}-{{Schedule}}\n"
         f"\nValid examples:\n"
         f"  OpenClaw_ProphecyNews_NewsFull_0700\n"
-        f"  ProphecyNews-NewsFull-7am\n"
-        f"  QuantumHub-Alerts-1pm\n"
-        f"  OpenClaw-SecurityAudit\n"
+        f"  OpenClaw_QuantumHub_SyncDaily_0900\n"
+        f"  OpenClaw_MedicalIntel_ReportWeekly_Sunday\n"
     )
 
 def create_windows_task(task_name, command, time, frequency, day=None, date=None):

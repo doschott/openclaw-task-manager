@@ -1,5 +1,6 @@
 """
 test_naming.py - Naming convention validation tests
+Standard convention: OpenClaw_{Project}_{Action}_{Schedule}
 """
 
 import pytest
@@ -16,7 +17,6 @@ create_mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(create_mod)
 
 NAMING_PATTERN = create_mod.NAMING_PATTERN
-ALT_NAMING_PATTERN = create_mod.ALT_NAMING_PATTERN
 
 
 class TestStandardNaming:
@@ -103,78 +103,3 @@ class TestStandardNaming:
         ]
         for name in valid:
             assert NAMING_PATTERN.match(name), f"Expected '{name}' to be valid"
-
-
-class TestAlternativeNaming:
-    """Tests for alternative dash-separated naming: {ProjectName}-{Descriptor}(-{Schedule})?"""
-
-    @pytest.mark.parametrize("name", [
-        # OpenClaw system tasks
-        "OpenClaw-SecurityAudit",
-        "OpenClaw-SessionCleanup",
-        "OpenClaw-SilentBackup",
-        # ProphecyNews tasks
-        "ProphecyNews-Dashboard",
-        "ProphecyNews-Digest",
-        "ProphecyNews-ReaderResponses",
-        "ProphecyNews-Video",
-        "ProphecyNews-Weekly",
-        "ProphecyNews-NewsFull-1pm",
-        "ProphecyNews-NewsFull-6pm",
-        "ProphecyNews-NewsFull-7am",
-        "ProphecyNews-PushVercel-1pm",
-        "ProphecyNews-PushVercel-6pm",
-        "ProphecyNews-PushVercel-7am",
-        # QuantumHub tasks
-        "QuantumHub-Alerts-1pm",
-        "QuantumHub-Alerts-6pm",
-        "QuantumHub-Alerts-7am",
-        "QuantumHub-News-1pm",
-        "QuantumHub-News-6pm",
-        "QuantumHub-News-7am",
-        "QuantumHub-PushVercel-1pm",
-        "QuantumHub-PushVercel-6pm",
-        "QuantumHub-PushVercel-7am",
-        "QuantumHub-Video-6am",
-    ])
-    def test_valid_alt_names_match(self, name):
-        """Valid alternative names should match the pattern."""
-        assert ALT_NAMING_PATTERN.match(name), f"Expected '{name}' to be valid"
-
-    @pytest.mark.parametrize("name", [
-        "DOSBot-SecurityAudit",
-        "Prophecy-Dashboard",
-        "Quantum-Digest",
-        "UnknownProject-Task",
-        "OpenClaw_",
-        "ProphecyNews_Weekly",
-    ])
-    def test_invalid_alt_prefix_rejected(self, name):
-        """Names with unknown project prefixes should be rejected."""
-        assert not ALT_NAMING_PATTERN.match(name), f"Expected '{name}' to be invalid (unknown prefix)"
-
-    @pytest.mark.parametrize("name", [
-        "OpenClaw-",
-        "ProphecyNews-",
-        "QuantumHub-Alerts-",
-        "ProphecyNews-NewsFull-1pm-Extra",
-    ])
-    def test_invalid_alt_component_rejected(self, name):
-        """Names with too many or empty components should be rejected."""
-        assert not ALT_NAMING_PATTERN.match(name), f"Expected '{name}' to be invalid"
-
-
-class TestCombinedValidation:
-    """Tests that either standard OR alternative pattern is accepted."""
-
-    @pytest.mark.parametrize("name", [
-        "OpenClaw_ProphecyNews_NewsFull_0700",
-        "ProphecyNews-NewsFull-7am",
-        "QuantumHub-Alerts-1pm",
-        "OpenClaw-SecurityAudit",
-        "ProphecyNews-Weekly",
-    ])
-    def test_either_pattern_accepted(self, name):
-        """Names matching either standard or alt pattern are valid."""
-        assert NAMING_PATTERN.match(name) or ALT_NAMING_PATTERN.match(name), \
-            f"Expected '{name}' to be accepted by at least one pattern"

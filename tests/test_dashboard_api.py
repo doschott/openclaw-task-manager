@@ -18,24 +18,22 @@ class TestDashboardAPI:
     """Test dashboard API endpoints."""
 
     def test_naming_validation_api(self):
-        """API validates task names against naming convention."""
+        """API validates task names against standard naming convention."""
         from dashboard import NAMING_PATTERN
-        import re
-        ALT_NAMING_PATTERN = re.compile(r"^(OpenClaw|ProphecyNews|QuantumHub|LemonParty|MedicalIntel|ShadowBroker)-[A-Za-z0-9]+(-[A-Za-z0-9]+)?$")
 
-        valid_standard = "OpenClaw_Test_Valid_0700"
-        valid_alt = "ProphecyNews-Dashboard"
+        valid = "OpenClaw_Test_Valid_0700"
         invalid = "DOSBot_Test_Invalid_0700"
+        invalid_dash = "ProphecyNews-Dashboard"
 
-        assert NAMING_PATTERN.match(valid_standard) or ALT_NAMING_PATTERN.match(valid_standard)
-        assert NAMING_PATTERN.match(valid_alt) or ALT_NAMING_PATTERN.match(valid_alt)
-        assert not NAMING_PATTERN.match(invalid) and not ALT_NAMING_PATTERN.match(invalid)
+        assert NAMING_PATTERN.match(valid)
+        assert not NAMING_PATTERN.match(invalid)
+        assert not NAMING_PATTERN.match(invalid_dash)
 
     def test_openclaw_pattern_matches_backslash_tasks(self):
         """OPENCLAW_PATTERN regex matches task names with leading backslash."""
         from dashboard import OPENCLAW_PATTERN
 
-        # Dash-separated patterns (current OPENCLAW_PATTERN)
+        # Dash-separated patterns (OPENCLAW_PATTERN scans all project tasks)
         assert OPENCLAW_PATTERN.match("\\OpenClaw-SecurityAudit")
         assert OPENCLAW_PATTERN.match("\\ProphecyNews-NewsFull-7am")
         assert OPENCLAW_PATTERN.match("\\QuantumHub-Alerts-1pm")
