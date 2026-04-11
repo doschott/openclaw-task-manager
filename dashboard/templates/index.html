@@ -136,96 +136,41 @@
     </div>
   </div>
 
-  <!-- Create Task -->
-  <div id="tab-create" class="tab-content">
+  <!-- Import Task -->
+  <div id="tab-import" class="tab-content">
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Create New Task</span>
+        <span class="card-title">Import Existing Task</span>
       </div>
-      <form id="create-form" onsubmit="submitCreate(event)">
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:20px">
+        Register a Windows Task Scheduler task that wasn't created by this skill. 
+        It will be tracked in the registry and appear in the dashboard.
+      </p>
+      <form id="import-form" onsubmit="submitImport(event)">
         <div class="form-grid">
           <div class="form-group full">
-            <label for="task_name">Task Name *</label>
-            <input type="text" id="task_name" name="task_name" placeholder="OpenClaw_ProphecyNews_NewsFull_0700" required>
-            <div class="naming-hint">Format: <code>OpenClaw_{Project}_{Action}_{Schedule}</code></div>
+            <label for="import_name">Task Name *</label>
+            <input type="text" id="import_name" name="import_name" placeholder="OpenClaw_ExistingTask_Action_Schedule" required>
+            <div class="naming-hint">Must already exist in Windows Task Scheduler</div>
           </div>
-          <div class="form-group full">
-            <label for="command">Command *</label>
-            <input type="text" id="command" name="command" class="code-input" placeholder="python D:\scripts\fetch_news.py" required>
-          </div>
-          <div class="form-group">
-            <label for="time">Time *</label>
-            <input type="time" id="time" name="time" value="07:00" required>
-          </div>
-          <div class="form-group">
-            <label for="frequency">Frequency *</label>
-            <select id="frequency" name="frequency" required>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="once">One-time</option>
-              <option value="hourly">Hourly</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="day">Day of Week</label>
-            <select id="day" name="day">
-              <option value="">— Not applicable —</option>
-              <option value="Sunday">Sunday</option>
-              <option value="Monday">Monday</option>
-              <option value="Tuesday">Tuesday</option>
-              <option value="Wednesday">Wednesday</option>
-              <option value="Thursday">Thursday</option>
-              <option value="Friday">Friday</option>
-              <option value="Saturday">Saturday</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="date">Start Date</label>
-            <input type="date" id="date" name="date">
-          </div>
-          <div class="form-group full" style="margin-top: 8px;">
-            <button type="submit" class="btn btn-primary">Create Task</button>
+          <div class="form-group full" style="margin-top:8px">
+            <button type="submit" class="btn btn-primary">Import Task</button>
           </div>
         </div>
       </form>
+      <div id="import-result" style="margin-top:16px"></div>
     </div>
+  </div>
 
-    <!-- Import Task -->
-    <div id="tab-import" class="tab-content">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Import Existing Task</span>
-        </div>
-        <p style="color:#94a3b8;font-size:14px;margin-bottom:20px">
-          Register a Windows Task Scheduler task that wasn't created by this skill. 
-          It will be tracked in the registry and appear in the dashboard.
-        </p>
-        <form id="import-form" onsubmit="submitImport(event)">
-          <div class="form-grid">
-            <div class="form-group full">
-              <label for="import_name">Task Name *</label>
-              <input type="text" id="import_name" name="import_name" placeholder="OpenClaw_ExistingTask_Action_Schedule" required>
-              <div class="naming-hint">Must already exist in Windows Task Scheduler</div>
-            </div>
-            <div class="form-group full" style="margin-top:8px">
-              <button type="submit" class="btn btn-primary">Import Task</button>
-            </div>
-          </div>
-        </form>
-        <div id="import-result" style="margin-top:16px"></div>
+  <!-- Version History -->
+  <div id="tab-versions" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Version History</span>
+        <button class="btn btn-ghost btn-sm" onclick="refreshVersions()">↻ Refresh</button>
       </div>
-    </div>
-
-    <!-- Version History -->
-    <div id="tab-versions" class="tab-content">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Version History</span>
-          <button class="btn btn-ghost btn-sm" onclick="refreshVersions()">↻ Refresh</button>
-        </div>
-        <div id="versions-list" style="margin-top:16px">
-          <div class="loading"><div class="spinner"></div></div>
-        </div>
+      <div id="versions-list" style="margin-top:16px">
+        <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
   </div>
@@ -318,34 +263,6 @@
     document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
     event.target.classList.add("active");
     document.getElementById("tab-" + tab).classList.add("active");
-  }
-
-  async function submitCreate(e) {
-    e.preventDefault();
-    const form = document.getElementById("create-form");
-    const data = {
-      task_name: document.getElementById("task_name").value.trim(),
-      command: document.getElementById("command").value.trim(),
-      time: document.getElementById("time").value,
-      frequency: document.getElementById("frequency").value,
-      day: document.getElementById("day").value || null,
-      date: document.getElementById("date").value || null,
-    };
-
-    const res = await fetch("/api/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    const result = await res.json();
-
-    if (result.success) {
-      showToast("Task created successfully!", "success");
-      form.reset();
-      loadTasks();
-    } else {
-      showToast(result.message, "error");
-    }
   }
 
   async function deleteTask(name, orphaned) {
