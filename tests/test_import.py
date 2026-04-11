@@ -23,9 +23,11 @@ class TestImportTask:
 
     def test_import_validates_naming_convention(self):
         """Import rejects tasks that don't follow naming convention."""
-        # Valid name should not raise
+        # Standard convention valid
         import_mod.validate_name("OpenClaw_Test_Import_0700")
-
+        # Alt convention valid
+        import_mod.validate_name("ProphecyNews-Dashboard")
+        import_mod.validate_name("QuantumHub-Alerts-1pm")
         # Invalid name should raise ValueError
         with pytest.raises(ValueError) as exc_info:
             import_mod.validate_name("DOSBot_Test_Import_0700")

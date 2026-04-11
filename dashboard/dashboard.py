@@ -75,8 +75,9 @@ REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry.json"
 # --- Flask App ---
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
-OPENCLAW_PATTERN = re.compile(r"^\\?(OpenClaw|ProphecyNews|QuantumHub|LemonParty|Medical|ShadowBroker)-")
-NAMING_PATTERN = re.compile(r"^OpenClaw_[A-Z][a-zA-Z0-9]*_[A-Z][a-zA-Z0-9]*_[A-Z0-9a-z]+$")
+OPENCLAW_PATTERN = re.compile(r"^\\?(OpenClaw|ProphecyNews|QuantumHub|LemonParty|MedicalIntel|ShadowBroker)-")
+# Standard: OpenClaw_{Project}_{Action}_{Schedule}  OR  Alt: {ProjectName}-{Descriptor}(-{Schedule})?
+NAMING_PATTERN = re.compile(r"^(OpenClaw_[A-Z][a-zA-Z0-9]*_[A-Z][a-zA-Z0-9]*_[A-Z0-9a-z]+|(OpenClaw|ProphecyNews|QuantumHub|LemonParty|MedicalIntel|ShadowBroker)-[A-Za-z0-9]+(-[A-Za-z0-9]+)?)$")
 
 
 # --- Registry Helpers ---
