@@ -1,0 +1,5 @@
+# Dashboard dependencies
+flask>=2.0
+
+# Test dependencies (run with: pytest tests/)
+pytest>=7.0
