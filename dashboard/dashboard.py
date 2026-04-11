@@ -75,7 +75,7 @@ REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry.json"
 # --- Flask App ---
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
-OPENCLAW_PATTERN = re.compile(r"^\\?OpenClaw_")
+OPENCLAW_PATTERN = re.compile(r"^\\?(OpenClaw|ProphecyNews|QuantumHub|LemonParty|Medical|ShadowBroker)-")
 NAMING_PATTERN = re.compile(r"^OpenClaw_[A-Z][a-zA-Z0-9]*_[A-Z][a-zA-Z0-9]*_[A-Z0-9a-z]+$")
 
 
