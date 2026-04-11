@@ -120,7 +120,6 @@
   <!-- Tabs -->
   <div class="section-tabs">
     <button class="tab active" onclick="showTab('tasks')">Tasks</button>
-    <button class="tab" onclick="showTab('create')">Create Task</button>
     <button class="tab" onclick="showTab('import')">Import Task</button>
     <button class="tab" onclick="showTab('versions')">Version History</button>
   </div>
@@ -247,7 +246,7 @@
   function renderTasks(tasks) {
     const container = document.getElementById("task-list");
     if (!tasks || tasks.length === 0) {
-      container.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No tasks found. Create one to get started.</p></div>';
+      container.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No tasks found. Message your OpenClaw to get started.</p></div>';
       return;
     }
 
