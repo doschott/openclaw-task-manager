@@ -140,6 +140,7 @@ class RegistryModule:
     def get_task(self, name): return get_registry_task(name)
     def add_task(self, name, meta): return add_registry_task(name, meta)
     def remove_task(self, name): return remove_registry_task(name)
+    def get_versions(self, name): return get_versions(name)
 
 registry = RegistryModule()
 
