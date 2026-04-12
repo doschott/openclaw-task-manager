@@ -266,8 +266,14 @@
   function showTab(tab) {
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-    event.target.classList.add("active");
+    // Always find the tab button explicitly by matching the onclick attribute
+    const tabBtns = document.querySelectorAll(".tab");
+    tabBtns.forEach(b => {
+      if (b.getAttribute("onclick").includes("'" + tab + "'")) b.classList.add("active");
+    });
     document.getElementById("tab-" + tab).classList.add("active");
+    // Auto-load version history when the versions tab is opened
+    if (tab === "versions") refreshVersions();
   }
 
   async function deleteTask(name, orphaned) {
@@ -368,21 +374,29 @@
     const container = document.getElementById("versions-list");
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-    // Gather all versions from all tasks
+    let allVersions = [];
+
+    // Fetch tasks, fall back to empty array on failure
     let tasks = [];
     try {
       const res = await fetch("/api/tasks");
+      console.debug("tasks fetch status:", res.status);
       if (res.ok) tasks = await res.json();
     } catch (e) {
       console.error("Failed to fetch tasks:", e);
     }
-    let allVersions = [];
+    console.debug("tasks count:", tasks.length);
 
+    // Gather versions for each task with error handling
     for (const task of tasks) {
       try {
-        const res = await fetch(`/api/versions/${encodeURIComponent(task.name)}`);
+        const encodedName = encodeURIComponent(task.name);
+        console.debug("Fetching versions for:", task.name);
+        const res = await fetch(`/api/versions/${encodedName}`);
+        console.debug("versions fetch status for", task.name, ":", res.status);
         if (!res.ok) continue;
         const data = await res.json();
+        console.debug("versions data for", task.name, ":", data.versions ? data.versions.length : "N/A");
         // Handle both {success, versions} and raw array responses
         const versions = Array.isArray(data) ? data : (data.versions || []);
         if (versions.length > 0) {
@@ -392,6 +406,7 @@
         console.error("Failed to fetch versions for", task.name, e);
       }
     }
+    console.debug("allVersions count:", allVersions.length);
 
     if (allVersions.length === 0) {
       container.innerHTML = '<div class="empty"><p>No version history found. Create or import tasks to start tracking.</p></div>';
