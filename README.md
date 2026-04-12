@@ -2,7 +2,7 @@
 
 Manage Windows Task Scheduler tasks for OpenClaw agents from a browser or the command line. Enforces naming conventions, tracks all tasks in a registry, and provides version history with restore capability.
 
-![Dashboard](assets/dashboard-preview.png)
+![Dashboard](assets/taskmanager.png)
 
 ## Features
 

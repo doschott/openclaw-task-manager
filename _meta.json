@@ -17,8 +17,7 @@
   ],
   "shortDescription": "Browser dashboard and CLI for managing Windows Task Scheduler tasks with OpenClaw naming conventions and version history.",
   "screenshots": [
-    "assets/dashboard-tasks.png",
-    "assets/dashboard-import.png"
+    "assets/taskmanager.png"
   ],
   "features": [
     "Web dashboard at http://localhost:5173",
