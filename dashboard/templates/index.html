@@ -93,7 +93,7 @@
 
 <header>
   <h1>OpenClaw Task Manager <span class="badge">Dashboard</span></h1>
-  <button class="btn btn-ghost" onclick="refreshTasks()">↻ Refresh</button>
+  <button class="btn btn-ghost" id="refresh-btn" onclick="refreshTasks()">↻ Refresh</button>
 </header>
 
 <div class="container">
@@ -182,10 +182,15 @@
   let allTasks = [];
 
   async function loadTasks() {
-    const res = await fetch("/api/tasks");
-    allTasks = await res.json();
-    renderTasks(allTasks);
-    updateStats(allTasks);
+    try {
+      const res = await fetch("/api/tasks");
+      if (!res.ok) throw new Error("API error: " + res.status);
+      allTasks = await res.json();
+      renderTasks(allTasks);
+      updateStats(allTasks);
+    } catch (err) {
+      showToast("Failed to load tasks: " + err.message, "error");
+    }
   }
 
   function renderTasks(tasks) {
@@ -301,7 +306,15 @@
     }
   }
 
-  function refreshTasks() { loadTasks(); }
+  function refreshTasks() {
+    const btn = document.getElementById("refresh-btn");
+    btn.textContent = "⟳ Loading...";
+    btn.disabled = true;
+    loadTasks().finally(() => {
+      btn.textContent = "↻ Refresh";
+      btn.disabled = false;
+    });
+  }
 
   function showToast(message, type) {
     const toast = document.getElementById("toast");
