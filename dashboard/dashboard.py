@@ -98,6 +98,7 @@ def save_registry(registry):
 
 # --- Registry Version Helpers ---
 VERSION_REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry-versions.json"
+DELETED_REGISTRY_PATH = Path.home() / ".openclaw" / "task-registry-deleted.json"
 
 def load_version_registry():
     if not VERSION_REGISTRY_PATH.exists():
@@ -112,6 +113,20 @@ def save_version_registry(versions):
     VERSION_REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(VERSION_REGISTRY_PATH, "w", encoding="utf-8") as f:
         json.dump(versions, f, indent=2, ensure_ascii=False)
+
+def load_deleted_registry():
+    if not DELETED_REGISTRY_PATH.exists():
+        return {}
+    try:
+        with open(DELETED_REGISTRY_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+def save_deleted_registry(deleted):
+    DELETED_REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DELETED_REGISTRY_PATH, "w", encoding="utf-8") as f:
+        json.dump(deleted, f, indent=2, ensure_ascii=False)
 
 def add_version(task_name, metadata, reason="Manual update"):
     versions = load_version_registry()
@@ -324,6 +339,10 @@ def delete_task(task_name, force=False):
         if task_name not in registry:
             raise ValueError(f"Task '{task_name}' not found in registry. Use --force to delete anyway.")
 
+    # Capture task metadata before deletion for the deleted store
+    registry = load_registry()
+    task_meta = registry.get(task_name, {})
+
     result = subprocess.run(
         [_SCHTASKS, "/delete", "/tn", task_name, "/f"],
         capture_output=True, text=True, encoding="utf-8", errors="replace"
@@ -331,8 +350,15 @@ def delete_task(task_name, force=False):
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
 
+    # Save to deleted registry before removing
+    deleted = load_deleted_registry()
+    deleted[task_name] = {
+        **task_meta,
+        "deleted_at": datetime.now().isoformat()
+    }
+    save_deleted_registry(deleted)
+
     # Remove from registry
-    registry = load_registry()
     registry.pop(task_name, None)
     save_registry(registry)
 
@@ -516,6 +542,58 @@ def api_versions(task_name):
         "versions": versions
     })
 
+
+@app.route("/api/deleted")
+def api_get_deleted():
+    """Get all deleted tasks, sorted by deleted_at descending."""
+    deleted = load_deleted_registry()
+    items = [{"name": name, **meta} for name, meta in deleted.items()]
+    items.sort(key=lambda x: x.get("deleted_at", ""), reverse=True)
+    return jsonify({"success": True, "deleted": items})
+
+@app.route("/api/deleted/<task_name>/restore", methods=["POST"])
+def api_restore_deleted(task_name):
+    """Restore a deleted task by re-creating it in Windows Task Scheduler and registry."""
+    deleted = load_deleted_registry()
+    if task_name not in deleted:
+        return jsonify({"success": False, "message": f"Task '{task_name}' not found in deleted store."}), 404
+
+    meta = deleted[task_name]
+
+    # Re-create the Windows task
+    try:
+        subprocess.run([_SCHTASKS, "/delete", "/tn", task_name, "/f"],
+                      capture_output=True, text=True, encoding="utf-8", errors="replace")
+        cmd = [
+            _SCHTASKS, "/create",
+            "/tn", task_name,
+            "/tr", meta.get("command", ""),
+            "/sc", meta.get("schedule", "daily"),
+            "/st", meta.get("time", "00:00"),
+            "/f"
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+    reg = load_registry()
+    reg[task_name] = {k: v for k, v in meta.items() if k not in ("deleted_at",)}
+    save_registry(reg)
+
+    deleted.pop(task_name, None)
+    save_deleted_registry(deleted)
+
+    return jsonify({"success": True, "message": f"Task '{task_name}' restored."})
+
+@app.route("/api/deleted/<task_name>", methods=["DELETE"])
+def api_perma_delete(task_name):
+    """Permanently delete a task from the deleted store."""
+    deleted = load_deleted_registry()
+    if task_name not in deleted:
+        return jsonify({"success": False, "message": f"Task '{task_name}' not found."}), 404
+    deleted.pop(task_name, None)
+    save_deleted_registry(deleted)
+    return jsonify({"success": True, "message": f"'{task_name}' permanently deleted."})
 
 @app.route("/api/restore/<task_name>/<int:version_num>", methods=["POST"])
 def api_restore(task_name, version_num):

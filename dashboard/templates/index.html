@@ -129,6 +129,7 @@
   <div class="section-tabs">
     <button class="tab active" onclick="showTab('tasks')">Tasks</button>
     <button class="tab" onclick="showTab('import')">Import Task</button>
+    <button class="tab" onclick="showTab('deleted')">Deleted</button>
     <button class="tab" onclick="showTab('versions')">Version History</button>
   </div>
 
@@ -167,6 +168,19 @@
         </div>
       </form>
       <div id="import-result" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- Deleted Tasks -->
+  <div id="tab-deleted" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Deleted Tasks</span>
+        <button class="btn btn-ghost btn-sm" onclick="refreshDeleted()">↻ Refresh</button>
+      </div>
+      <div id="deleted-list" style="margin-top:16px">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
     </div>
   </div>
 
@@ -317,6 +331,77 @@
       ${html}`;
   }
 
+  async function refreshDeleted() {
+    const container = document.getElementById("deleted-list");
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+      const res = await fetch("/api/deleted");
+      const data = await res.json();
+      if (!data.success || !data.deleted.length) {
+        container.innerHTML = '<div class="empty"><p>No deleted tasks.</p></div>';
+        return;
+      }
+      let html = `<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#94a3b8;font-size:13px">${data.deleted.length} task${data.deleted.length !== 1 ? "s" : ""} deleted</span>
+      </div>`;
+      for (const task of data.deleted) {
+        const date = task.deleted_at ? new Date(task.deleted_at).toLocaleString() : "Unknown";
+        html += `<div class="task-card" style="border-color:#374151">
+          <div class="task-card-header">
+            <div class="task-card-name">
+              <span class="task-name orphaned">${task.name}</span>
+              <span class="orphaned-warning">Deleted</span>
+            </div>
+          </div>
+          <div class="task-card-body">
+            <div class="task-card-row"><span class="task-card-label">Deleted</span><span style="color:#94a3b8">${date}</span></div>
+            <div class="task-card-row" style="grid-column:1/-1"><span class="task-card-label">Command</span><span class="command-cell">${task.command || "-"}</span></div>
+            <div class="task-card-row"><span class="task-card-label">Schedule</span><span>${task.schedule || "-"} at ${task.time || "-"}</span></div>
+          </div>
+          <div class="task-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="restoreDeleted('${task.name}')">Restore</button>
+            <button class="btn btn-danger btn-sm" onclick="permaDelete('${task.name}')">Delete Permanently</button>
+          </div>
+        </div>`;
+      }
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = '<div class="empty"><p>Failed to load deleted tasks.</p></div>';
+    }
+  }
+
+  async function restoreDeleted(name) {
+    try {
+      const res = await fetch(`/api/deleted/${encodeURIComponent(name)}/restore`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Task "${name}" restored.`, "success");
+        refreshDeleted();
+        refreshTasks();
+      } else {
+        showToast(data.message || "Failed to restore.", "error");
+      }
+    } catch (e) {
+      showToast("Restore failed: " + e.message, "error");
+    }
+  }
+
+  async function permaDelete(name) {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/deleted/${encodeURIComponent(name)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`"${name}" permanently deleted.`, "success");
+        refreshDeleted();
+      } else {
+        showToast(data.message || "Failed.", "error");
+      }
+    } catch (e) {
+      showToast("Delete failed: " + e.message, "error");
+    }
+  }
+
   function showTab(tab) {
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
@@ -328,6 +413,7 @@
     document.getElementById("tab-" + tab).classList.add("active");
     // Auto-load version history when the versions tab is opened
     if (tab === "versions") refreshVersions();
+    if (tab === "deleted") refreshDeleted();
   }
 
   async function deleteTask(name, orphaned) {
