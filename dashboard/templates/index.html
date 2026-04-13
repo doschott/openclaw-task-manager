@@ -86,7 +86,15 @@
     .loading { display: flex; justify-content: center; padding: 48px; }
     .spinner { width: 32px; height: 32px; border: 3px solid #2d3348; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } td, th { font-size: 12px; } .task-name { font-size: 11px; } }
+    .task-card { background: #0f1117; border: 1px solid #2d3348; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; transition: border-color 0.2s; }
+    .task-card:hover { border-color: #3b82f6; }
+    .task-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .task-card-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .task-card-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 24px; margin-bottom: 14px; }
+    .task-card-row { display: flex; gap: 8px; font-size: 13px; }
+    .task-card-label { color: #64748b; min-width: 80px; }
+    .task-card-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #2d3348; }
+    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .task-card-body { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -111,7 +119,7 @@
       <div class="stat-value" id="stat-orphaned">—</div>
       <div class="stat-label">Orphaned</div>
     </div>
-    <div class="stat-card stat-red">
+    <div class="stat-card stat-red" style="cursor:pointer" onclick="showErrors()">
       <div class="stat-value" id="stat-errors">—</div>
       <div class="stat-label">Errors</div>
     </div>
@@ -202,26 +210,18 @@
 
     tasks.sort((a, b) => a.name.localeCompare(b.name));
 
-    let html = `<table>
-      <thead><tr>
-        <th>Task Name</th>
-        <th>Status</th>
-        <th>Next Run</th>
-        <th>Last Result</th>
-        <th>Command</th>
-        <th>Actions</th>
-      </tr></thead><tbody>`;
-
+    let html = '';
     for (const task of tasks) {
       const statusClass = task.status === "Ready" ? "status-ready"
         : task.status === "Running" ? "status-running"
         : task.status === "Disabled" ? "status-disabled"
         : "status-unknown";
 
-      let resultClass = "";
-      if (task.last_result === "0") resultClass = "result-success";
-      else if (task.last_result === "N/A" || task.last_result === "Never") resultClass = "result-pending";
-      else resultClass = "result-fail";
+      const resultClass = task.last_result === "0" ? "result-success"
+        : (task.last_result === "N/A" || task.last_result === "Never") ? "result-pending"
+        : "result-fail";
+
+      const resultLabel = task.last_result === "N/A" ? "Never run" : task.last_result;
 
       const orphaned = task.orphaned
         ? `<span class="orphaned-warning">⚠ Orphaned</span>`
@@ -231,23 +231,26 @@
         ? `<button class="btn btn-ghost btn-sm" onclick="toggleTask('${task.name}', true)">Enable</button>`
         : `<button class="btn btn-ghost btn-sm" onclick="toggleTask('${task.name}', false)">Disable</button>`;
 
-      html += `<tr>
-        <td><span class="task-name ${task.orphaned ? 'orphaned' : ''}">${task.name}${orphaned}</span></td>
-        <td><span class="status-badge ${statusClass}">${task.status}</span></td>
-        <td>${task.next_run}</td>
-        <td class="${resultClass}">${task.last_result === "N/A" ? "Not run" : task.last_result}</td>
-        <td><span class="command-cell" title="${task.command}">${task.command}</span></td>
-        <td>
-          <div class="actions">
-            ${disabledBtn}
-            <button class="btn btn-ghost btn-sm" onclick="runTask('${task.name}')">Run Now</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteTask('${task.name}', ${task.orphaned})">Delete</button>
+      html += `<div class="task-card">
+        <div class="task-card-header">
+          <div class="task-card-name">
+            <span class="task-name ${task.orphaned ? 'orphaned' : ''}">${task.name}</span>${orphaned}
+            <span class="status-badge ${statusClass}">${task.status}</span>
           </div>
-        </td>
-      </tr>`;
+        </div>
+        <div class="task-card-body">
+          <div class="task-card-row"><span class="task-card-label">Next Run</span><span>${task.next_run}</span></div>
+          <div class="task-card-row"><span class="task-card-label">Last Result</span><span class="${resultClass}">${resultLabel}</span></div>
+          <div class="task-card-row" style="grid-column: 1 / -1"><span class="task-card-label">Command</span><span class="command-cell" title="${task.command}">${task.command}</span></div>
+        </div>
+        <div class="task-card-actions">
+          ${disabledBtn}
+          <button class="btn btn-ghost btn-sm" onclick="runTask('${task.name}')">Run Now</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTask('${task.name}', ${task.orphaned})">Delete</button>
+        </div>
+      </div>`;
     }
 
-    html += "</tbody></table>";
     container.innerHTML = html;
   }
 
@@ -261,6 +264,57 @@
     document.getElementById("stat-ready").textContent = ready;
     document.getElementById("stat-orphaned").textContent = orphaned;
     document.getElementById("stat-errors").textContent = errors;
+  }
+
+  function showErrors() {
+    const errorTasks = allTasks.filter(t =>
+      t.last_result && t.last_result !== "0" && t.last_result !== "N/A" && t.last_result !== "Never"
+    );
+    if (!errorTasks.length) {
+      showToast("No errors found.", "success");
+      return;
+    }
+
+    const uniqueCodes = [...new Set(errorTasks.map(t => t.last_result))];
+    const legendHtml = uniqueCodes.map(code => {
+      let meaning = "";
+      if (code === "127") meaning = "Command or path not found";
+      else if (code === "2") meaning = "File not found";
+      else if (code === "1") meaning = "General error";
+      else if (code === "2147942403" || code === "2147942402") meaning = "Access denied / file not found";
+      else if (code === "267005") meaning = "Task not found";
+      else if (code === "2147943789") meaning = "User not logged on (disabled)";
+      else if (code === "2147943623") meaning = "Trigger not found";
+      else meaning = "Unknown error";
+      return `<div style="display:flex;gap:8px;align-items:center;font-size:13px">
+        <span style="background:#7f1d1d;color:#fca5a5;padding:2px 10px;border-radius:6px;font-weight:600;font-family:monospace">${code}</span>
+        <span style="color:#94a3b8">${meaning}</span>
+      </div>`;
+    }).join("");
+
+    const html = errorTasks.map(task => `
+      <div class="task-card" style="border-color:#991b1b">
+        <div class="task-card-header">
+          <div class="task-card-name">
+            <span class="task-name">${task.name}</span>
+            <span class="status-badge status-unknown">${task.last_result}</span>
+          </div>
+        </div>
+        <div class="task-card-body">
+          <div class="task-card-row" style="grid-column:1/-1"><span class="task-card-label">Command</span><span class="command-cell">${task.command}</span></div>
+        </div>
+      </div>`).join("");
+
+    document.getElementById("task-list").innerHTML = `
+      <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#f87171;font-weight:600">${errorTasks.length} task${errorTasks.length !== 1 ? "s" : ""} with errors</span>
+        <button class="btn btn-ghost btn-sm" onclick="renderTasks(allTasks)">← Back to All Tasks</button>
+      </div>
+      <div style="background:#1a0a0a;border:1px solid #991b1b;border-radius:10px;padding:16px;margin-bottom:20px">
+        <div style="color:#f87171;font-size:13px;font-weight:600;margin-bottom:12px">Error Code Meanings</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${legendHtml}</div>
+      </div>
+      ${html}`;
   }
 
   function showTab(tab) {
