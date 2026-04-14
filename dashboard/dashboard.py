@@ -347,8 +347,9 @@ def delete_task(task_name, force=False):
         [_SCHTASKS, "/delete", "/tn", task_name, "/f"],
         capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+    # Proceed with registry cleanup regardless of Windows Task Scheduler result.
+    # Task may not exist in Windows (e.g. orphaned) but should still be
+    # removed from the dashboard registry.
 
     # Save to deleted registry before removing
     deleted = load_deleted_registry()

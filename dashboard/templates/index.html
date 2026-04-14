@@ -417,16 +417,20 @@
   }
 
   async function deleteTask(name, orphaned) {
-    if (!confirm(`Delete task "${name}"?${orphaned ? " (Orphaned - not in registry)" : ""}`)) return;
+    const msg = orphaned
+      ? `Permanently delete orphaned task "${name}" from Windows? (Not in registry)`
+      : `Delete task "${name}" from Windows and registry?`;
+    if (!confirm(msg)) return;
     const force = orphaned ? "?force=true" : "";
-    const res = await fetch(`/api/delete/${name}${force}`, { method: "DELETE" });
-    const result = await res.json();
-    if (result.success) {
-      showToast("Task deleted.", "success");
-      loadTasks();
-    } else {
-      showToast(result.message, "error");
+    try {
+      const res = await fetch(`/api/delete/${encodeURIComponent(name)}${force}`, { method: "DELETE" });
+      let result;
+      try { result = await res.json(); } catch { result = { success: false, message: "Server error." }; }
+      showToast(result.message || (result.success ? "Task deleted." : "Delete failed."), result.success ? "success" : "error");
+    } catch (e) {
+      showToast("Network error: " + e.message, "error");
     }
+    await loadTasks();
   }
 
   async function toggleTask(name, enable) {
