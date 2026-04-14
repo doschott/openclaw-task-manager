@@ -198,7 +198,16 @@
   </div>
 </div>
 
-<div id="toast" class="toast"></div>
+<div id="confirm-modal" class="modal-overlay" style="display:none">
+    <div class="modal" style="text-align:center">
+      <h3 id="confirm-title">Confirm</h3>
+      <p id="confirm-message" style="margin-bottom:20px"></p>
+      <button class="btn btn-danger" id="confirm-ok">Delete</button>
+      <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
 
 <script>
   let allTasks = [];
@@ -387,7 +396,7 @@
   }
 
   async function permaDelete(name) {
-    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    showConfirm(`Permanently delete "${name}"? This cannot be undone.`, async () => {
     try {
       const res = await fetch(`/api/deleted/${encodeURIComponent(name)}`, { method: "DELETE" });
       const data = await res.json();
@@ -400,6 +409,7 @@
     } catch (e) {
       showToast("Delete failed: " + e.message, "error");
     }
+    });
   }
 
   function showTab(tab) {
@@ -420,17 +430,18 @@
     const msg = orphaned
       ? `Permanently delete orphaned task "${name}" from Windows? (Not in registry)`
       : `Delete task "${name}" from Windows and registry?`;
-    if (!confirm(msg)) return;
-    const force = orphaned ? "?force=true" : "";
-    try {
-      const res = await fetch(`/api/delete/${encodeURIComponent(name)}${force}`, { method: "DELETE" });
-      let result;
-      try { result = await res.json(); } catch { result = { success: false, message: "Server error." }; }
-      showToast(result.message || (result.success ? "Task deleted." : "Delete failed."), result.success ? "success" : "error");
-    } catch (e) {
-      showToast("Network error: " + e.message, "error");
-    }
-    await loadTasks();
+    showConfirm(msg, async () => {
+      try {
+        const force = orphaned ? "?force=true" : "";
+        const res = await fetch(`/api/delete/${encodeURIComponent(name)}${force}`, { method: "DELETE" });
+        let result;
+        try { result = await res.json(); } catch { result = { success: false, message: "Server error." }; }
+        showToast(result.message || (result.success ? "Task deleted." : "Delete failed."), result.success ? "success" : "error");
+      } catch (e) {
+        showToast("Network error: " + e.message, "error");
+      }
+      await loadTasks();
+    });
   }
 
   async function toggleTask(name, enable) {
@@ -471,6 +482,21 @@
     toast.textContent = message;
     toast.className = `toast toast-${type} toast-show`;
     setTimeout(() => { toast.classList.remove("toast-show"); }, 3000);
+  }
+
+  function showConfirm(message, onConfirm) {
+    document.getElementById("confirm-message").textContent = message;
+    const modal = document.getElementById("confirm-modal");
+    modal.style.display = "flex";
+    const okBtn = document.getElementById("confirm-ok");
+    const cancelBtn = document.getElementById("confirm-cancel");
+    const cleanup = () => {
+      modal.style.display = "none";
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+    };
+    okBtn.onclick = () => { cleanup(); onConfirm(); };
+    cancelBtn.onclick = () => { cleanup(); };
   }
 
   // Init
@@ -610,16 +636,17 @@
   }
 
   async function restoreVersion(taskName, versionNum) {
-    if (!confirm(`Restore task "${taskName}" to version ${versionNum}?`)) return;
-    const res = await fetch(`/api/restore/${encodeURIComponent(taskName)}/${versionNum}`, { method: "POST" });
-    const result = await res.json();
-    if (result.success) {
-      showToast(`Task "${taskName}" restored to v${versionNum}.`, "success");
-      loadTasks();
-      refreshVersions();
-    } else {
-      showToast(result.message, "error");
-    }
+    showConfirm(`Restore task "${taskName}" to version ${versionNum}?`, async () => {
+      const res = await fetch(`/api/restore/${encodeURIComponent(taskName)}/${versionNum}`, { method: "POST" });
+      const result = await res.json();
+      if (result.success) {
+        showToast(`Task "${taskName}" restored to v${versionNum}.`, "success");
+        loadTasks();
+        refreshVersions();
+      } else {
+        showToast(result.message, "error");
+      }
+    });
   }
 </script>
 </body>
