@@ -57,9 +57,9 @@ Then open **http://localhost:5173** in your browser.
 
 ### 2. Create a Task
 
-Tasks should be created by speaking directly to your OpenClaw agent, which handles registry tracking and Windows Task Scheduler creation.
+Tell your OpenClaw agent to create a task, and it will handle both the Windows Task Scheduler creation and the registry registration (with version history) automatically.
 
-Alternatively, create a task via CLI:
+For CLI-only creation:
 
 ```bash
 python scripts/create.py OpenClaw_ProphecyNews_NewsFull_0700 \
