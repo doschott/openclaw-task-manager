@@ -530,6 +530,12 @@ def api_import():
     })
 
 
+@app.route("/api/versions")
+def api_all_versions():
+    """Get version history for all tasks at once."""
+    versions = load_version_registry()
+    return jsonify({"success": True, "versions": versions})
+
 @app.route("/api/versions/<task_name>")
 def api_versions(task_name):
     """Get version history for a task."""

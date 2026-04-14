@@ -514,39 +514,24 @@
     const container = document.getElementById("versions-list");
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-    let allVersions = [];
+    // Fetch tasks and all version history in parallel — one round trip each
+    const [tasksRes, allVersionsRes] = await Promise.all([
+      fetch("/api/tasks").catch(() => null),
+      fetch("/api/versions").catch(() => null)
+    ]);
 
-    // Fetch tasks, fall back to empty array on failure
-    let tasks = [];
-    try {
-      const res = await fetch("/api/tasks");
-      console.debug("tasks fetch status:", res.status);
-      if (res.ok) tasks = await res.json();
-    } catch (e) {
-      console.error("Failed to fetch tasks:", e);
-    }
-    console.debug("tasks count:", tasks.length);
+    const tasks = tasksRes?.ok ? await tasksRes.json() : [];
+    const allVersionsData = allVersionsRes?.ok ? await allVersionsRes.json() : {};
+    const allVersionsMap = allVersionsData?.versions || {};
 
-    // Gather versions for each task with error handling
+    // Match tasks to their version history
+    const allVersions = [];
     for (const task of tasks) {
-      try {
-        const encodedName = encodeURIComponent(task.name);
-        console.debug("Fetching versions for:", task.name);
-        const res = await fetch(`/api/versions/${encodedName}`);
-        console.debug("versions fetch status for", task.name, ":", res.status);
-        if (!res.ok) continue;
-        const data = await res.json();
-        console.debug("versions data for", task.name, ":", data.versions ? data.versions.length : "N/A");
-        // Handle both {success, versions} and raw array responses
-        const versions = Array.isArray(data) ? data : (data.versions || []);
-        if (versions.length > 0) {
-          allVersions.push({ task: task.name, versions });
-        }
-      } catch (e) {
-        console.error("Failed to fetch versions for", task.name, e);
+      const versions = allVersionsMap[task.name] || [];
+      if (versions.length > 0) {
+        allVersions.push({ task: task.name, versions });
       }
     }
-    console.debug("allVersions count:", allVersions.length);
 
     if (allVersions.length === 0) {
       container.innerHTML = '<div class="empty"><p>No version history found. Create or import tasks to start tracking.</p></div>';
