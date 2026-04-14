@@ -2,7 +2,23 @@
 
 Manage Windows Task Scheduler tasks for OpenClaw agents from a browser or the command line. Enforces naming conventions, tracks all tasks in a registry, and provides version history with restore capability.
 
-![Dashboard](assets/taskmanager.png)
+## Dashboard Screenshots
+
+**Tasks Tab** — View all tasks with status, next run, last result, and command. Disable, run, or delete each task directly from its card.
+
+![Tasks Tab](assets/tab-tasks.png)
+
+**Import Task Tab** — Register existing Windows Task Scheduler tasks into the registry so they can be managed alongside native tasks.
+
+![Import Task Tab](assets/tab-import.png)
+
+**Deleted Tab** — View and restore previously deleted tasks, or permanently remove them from the deleted store.
+
+![Deleted Tab](assets/tab-deleted.png)
+
+**Version History Tab** — Browse the version history of every task and restore to any previous version.
+
+![Version History Tab](assets/tab-versions.png)
 
 ## Features
 
@@ -10,6 +26,7 @@ Manage Windows Task Scheduler tasks for OpenClaw agents from a browser or the co
 - **Naming Convention Enforcement** — All tasks must follow `OpenClaw_{Project}_{Action}_{Schedule}`
 - **Task Registry** — Tracks all managed tasks in `~/.openclaw/task-registry.json`
 - **Version History** — Every task change is versioned, with full restore capability
+- **Deleted Tasks** — Soft-delete with restore or permanent removal
 - **Import Existing Tasks** — Register tasks created outside this tool
 - **Orphan Detection** — Highlights tasks in Windows that aren't in the registry
 - **CLI Scripts** — Full command-line interface for create, list, status, delete, and import
@@ -79,6 +96,7 @@ OpenClaw_{Project}_{Action}_{Schedule}
 |-----|---------|
 | **Tasks** | View all tasks, enable/disable/run/delete |
 | **Import Task** | Register an existing Windows Task Scheduler task |
+| **Deleted** | View and restore previously deleted tasks |
 | **Version History** | View and restore task configurations |
 
 ## CLI Scripts
@@ -137,7 +155,11 @@ openclaw-task-manager/
 │   ├── WSL_CRON_WARNING.md
 │   └── SCHTASKS_REFERENCE.md
 └── assets/
-    └── task-template.json
+    ├── task-template.json
+    ├── tab-tasks.png
+    ├── tab-import.png
+    ├── tab-deleted.png
+    └── tab-versions.png
 ```
 
 ## Examples
